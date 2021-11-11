@@ -1,37 +1,38 @@
 # Design and architecture
 
 ## Design
-image-rs crate is a tailored version of [containers/image](https://github.com/containers/image)
-and provide a small, simple, secure and fast OCI container image
-management rust implementation. For the API part, we will provide
-[CRI image service](https://github.com/kubernetes/cri-api/blob/master/pkg/apis/runtime/v1alpha2/api.proto#L119)
-compatible API. For the feature set part, we will focusing on support
-pod/container run stage and will not cover OCI container image develop
-and ship stage. For the overhead and performance part, since our target
-scenario may be one copy for each pod and used at pod/container cold
-start stage, we need implement it with low-cost and high performance.
+The `image-rs` crate is a rustified and tailored version of [containers/image](https://github.com/containers/image),
+to provide a small, simple, secure, lightweight and high performance OCI container image management library for
+[Confidential Containers](https://github.com/confidential-containers).
 
-image-rs will support both encrypted and unencrypted container image format since
-[encrypted container image](https://github.com/opencontainers/artifacts/pull/15)
-is mandatory in many confidential container scenarios, and consume
-[ocicrypt-rs](https://github.com/containers/ocicrypt-rs) rust crate for decryption.
+The `image-rs` crate focuses on usage scenarios to run `Confidential Containers` on Kubernetes clusters with
+[Kata Containers](https://katacontainers.io/). So it implements the
+[CRI Image Service](https://github.com/kubernetes/cri-api/blob/master/pkg/apis/runtime/v1alpha2/api.proto#L119)
+interface to be easily integrated with the K8s ecosystem. Among the container image `Build`, `Ship` and `Run` stages,
+it focuses on the `Run` stage instead of `Build` and `Ship`, that is only to provide interfaces to prepare container
+images for running in a confidential environment. It may aslo be enhanced to support other confidential container
+runtimes on demand.
 
-A stretch goal is to improve the container cold startup speed by supporting
-OnDemand or lazily image pulling. These features already implemented by
-several projects like [nydus](https://github.com/dragonflyoss/image-service),
-[stargz](https://github.com/containerd/stargz-snapshotter)
-and supported by containerd. But how to combine OnDemand pulling and
-OnDemand decryption together, we still have lots of work to do like
-define related container image metadata and data format.
+The `image-rs` crate supports both encrypted and unencrypted container images since
+[Encrypted Container Image](https://github.com/opencontainers/artifacts/pull/15)
+is mandatory for many confidential container usage scenarios. It also supports image signature verification to ensure
+integrity.
+
+For confidential containers based on enhanced hardware virtualization technologies (TDX/SEV/PEF etc), there's no easy
+way to share container images among pods/containers running on the same physical node. But it's time consuming to
+download, verify, decrypt and extract container images for each pod/container. So the `image-rs` crate will explore
+technologies and innovations to reduce image preparation time. Data decryption and decompression acceleration libraries
+may be used to speed up image decryption and decompression. Image data on demand loading may also be adopted to reduce
+container startup time.
 
 ### Goals
- * Support OCI image pulling from remote registries
- * Support OCI image loading from local [OCI layout compatiable](https://github.com/opencontainers/image-spec/blob/main/image-layout.md) storage
+ * Support pulling OCI/docker v2 images from remote registries compatible with the OCI distribution spec.
+ * Support downloading OCI images from local [OCI layout compatiable](https://github.com/opencontainers/image-spec/blob/main/image-layout.md) storage
  * Support OCI image decryption
- * Support OCI image signing verification
- * Support OCI image decryption and unpack acceleration
- * Support OnDemand image pulling
- * Can be seamlessly integration with Kata Agent and Attestation Agent
+ * Support OCI image signature verification
+ * Support seamlessly integration with Kata Agent and Attestation Agent
+ * Explore image decryption and decompression acceleration technologies
+ * Explore image on demand loading technologies
 
 ### Non-Goals
  * Image push, content discovery/management operations for remote registries
@@ -39,24 +40,22 @@ define related container image metadata and data format.
  * Image export to local storage
  * Image import from other service daemon or other local storage format
 
-### Current solutions
- * [containers-image-proxy-rs](https://github.com/containers/containers-image-proxy-rs)
- * [oci-distribution](https://github.com/krustlet/oci-distribution)
- * [oci-registry-client](https://github.com/ecarrara/oci-registry-client)
+### Existing Solutions
+ * [containers-image-proxy-rs](https://github.com/containers/containers-image-proxy-rs): a rust bindings for skopeo,
+   which doesn't meet our requirements of small TCB and lightweight.
+ * [oci-distribution](https://github.com/krustlet/oci-distribution): a crate from
+   [krustlet](https://github.com/krustlet/krustlet) to run wasm application with K8S. Since wasm is platform agnostic
+   and small code size, `oci-distribution` does not support manifest lists for different platforms and internal data
+   struct is not friend to generic container workload.
+ * [oci-registry-client](https://github.com/ecarrara/oci-registry-client): a very simple client for OCI image registries
+   with limited features and latest commit is one and half years ago.
 
-containers-image-proxy-rs is a rust bindings for skopeo which did not meet our small
-and lightweight requirement. oci-distribution is a crate for [krustlet](https://github.com/krustlet/krustlet)
-which is a rust implemented kubelet for running wasm. Since wasm is
-platform agnostic and small code size, oci-distribution did not support
-manifest lists for different platforms and internal data struct is not friend
-to generic container workload. oci-registry-client is a very simple client for
-OCI image registries with limited features and latest commit is one and
-half years ago. These projects also do not support image unpack and
-storage management features.
+Above projects focus on image distribution and do not support image unpack and storage management features.
 
 ## Architecture
 The following diagram demonstrates the overall architecture and how to
 integrate with Kata Agent:
+
 ![Architecture](images/architecture.png)
 
 The image_client module will provide the API and mainly cover image management,
@@ -80,3 +79,7 @@ image OnDemand pulling.
 
 The image-spec module will define the [OCI image spec](https://github.com/opencontainers/image-spec)
 to avoid the dependency of other heavy crates.
+
+## Reference
+[Nydus Image Service](https://github.com/dragonflyoss/image-service) for data on demand loading, data deduplication and encryption.
+[stargz](https://github.com/containerd/stargz-snapshotter) for data on demand loading.
