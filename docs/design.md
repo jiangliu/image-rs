@@ -34,11 +34,13 @@ container startup time.
  * Explore image decryption and decompression acceleration technologies
  * Explore image on demand loading technologies
 
+
 ### Non-Goals
  * Image push, content discovery/management operations for remote registries
  * Image encryption and signing
  * Image export to local storage
  * Image import from other service daemon or other local storage format
+
 
 ### Existing Solutions
  * [containers-image-proxy-rs](https://github.com/containers/containers-image-proxy-rs): a rust bindings for skopeo,
@@ -52,10 +54,10 @@ container startup time.
 
 Above projects focus on image distribution and do not support image unpack and storage management features.
 
+
 ## Architecture
 The following diagram demonstrates the overall architecture and how to
 integrate with Kata Agent:
-
 ![Architecture](images/architecture.png)
 
 The image_client module will provide the API and mainly cover image management,
@@ -68,7 +70,8 @@ image data is unpacked, snapshots module will prepare the rootfs together with
 the container configuration and metadata, the bundles can be generated for the
 runtime service to consume.
 
-Since data decryption and de-compression can be time consuming, we should also
+
+Due to data decryption and de-compression can be time consuming, image-rs will
 support different acceleration libraries to accelerate these process like
 Intel storage acceleration library:
 [isa-l](https://github.com/intel/isa-l)
@@ -79,6 +82,7 @@ image OnDemand pulling.
 
 The image-spec module will define the [OCI image spec](https://github.com/opencontainers/image-spec)
 to avoid the dependency of other heavy crates.
+
 
 ## Reference
 [Nydus Image Service](https://github.com/dragonflyoss/image-service) for data on demand loading, data deduplication and encryption.
